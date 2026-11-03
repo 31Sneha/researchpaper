@@ -9,7 +9,7 @@
 ---
 
 ## 🌐 Live Web Application
-- **URL**: [https://publication-verification-system.vercel.app/](https://publication-verification-system.vercel.app/)
+- **URL**: [https://researchpaper-jws9.onrender.com](https://researchpaper-jws9.onrender.com)
 - **Comprehensive Academic Report**: [Read the Full Project Report with Images & Appendix](docs/PROJECT_REPORT.md)
 
 ---
