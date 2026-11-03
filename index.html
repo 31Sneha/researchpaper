@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Publication Verification & Duplicate Detection System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #printableReport, #printableReport * { visibility: visible; }
+            #printableReport { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid fa-graduation-cap text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">Research Publication Verification &amp; Management System</h1>
+                    <p class="text-xs text-slate-500">Google Scholar / Crossref Auto-Duplicate &amp; Plagiarism Detection</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="openResearcherReportModal()" class="inline-flex items-center px-3.5 py-2 border border-purple-600 text-sm font-semibold rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 transition shadow-sm">
+                    <i class="fa-solid fa-file-lines mr-2 text-purple-600"></i> Researcher Report
+                </button>
+                <button onclick="openCheckTitleModal()" class="inline-flex items-center px-3.5 py-2 border border-amber-500 text-sm font-semibold rounded-lg text-amber-700 bg-amber-50 hover:bg-amber-100 transition shadow-sm">
+                    <i class="fa-solid fa-magnifying-glass mr-2 text-amber-600"></i> Check Title Existence
+                </button>
+                <button onclick="openAddModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm">
+                    <i class="fa-solid fa-plus mr-2"></i> Add Publication
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
+
+        <!-- Metrics Cards (Tracking Papers, Citations, and Statuses) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Papers</p>
+                    <p id="statTotal" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <i class="fa-solid fa-book"></i>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Verified Original</p>
+                    <p id="statVerified" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-rose-600 uppercase tracking-wider">Auto-Rejected / Duplicate</p>
+                    <p id="statRejected" class="text-2xl font-bold text-rose-600 mt-1">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Pending Review</p>
+                    <p id="statPending" class="text-2xl font-bold text-amber-600 mt-1">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Total Citations</p>
+                    <p id="statCitations" class="text-2xl font-bold text-indigo-600 mt-1">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                    <i class="fa-solid fa-quote-right"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="relative flex-1">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400"></i>
+                <input id="searchInput" type="text" placeholder="Search by Title, Author, DOI, or Journal..." 
+                       class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+            </div>
+            <div class="flex items-center space-x-3">
+                <select id="statusFilter" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition bg-white">
+                    <option value="ALL">All Statuses</option>
+                    <option value="VERIFIED">Verified Original</option>
+                    <option value="REJECTED">Auto-Rejected (Duplicate)</option>
+                    <option value="PENDING">Pending</option>
+                </select>
+                <button onclick="renderTable()" class="p-2 border border-slate-300 rounded-lg hover:bg-slate-100 text-slate-600 transition" title="Refresh">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Publications Table -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider text-left">
+                        <tr>
+                            <th class="px-6 py-3.5">ID</th>
+                            <th class="px-6 py-3.5">Paper Title &amp; Journal</th>
+                            <th class="px-6 py-3.5">DOI</th>
+                            <th class="px-6 py-3.5">Authors &amp; Year</th>
+                            <th class="px-6 py-3.5">Citations</th>
+                            <th class="px-6 py-3.5">Status</th>
+                            <th class="px-6 py-3.5">Verification &amp; Duplicate Notes</th>
+                            <th class="px-6 py-3.5 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="publicationsBody" class="divide-y divide-slate-200 text-sm">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="emptyState" class="hidden py-12 text-center text-slate-400">
+                <i class="fa-regular fa-folder-open text-4xl mb-3"></i>
+                <p>No publications found matching your filter criteria.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Check If Publication Already Exists (Google Scholar / Crossref Literature Detector) -->
+    <div id="checkExistenceModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-base">Check If Publication Already Exists</h3>
+                </div>
+                <button onclick="closeModal('checkExistenceModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="mt-4 space-y-4 overflow-y-auto pr-1 flex-1">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Enter Proposed Paper Title / Topic:</label>
+                    <div class="flex space-x-2">
+                        <input id="checkTitleInput" type="text" placeholder="e.g. AI AS A BUG DETECTOR or BERT: Pre-training..." 
+                               class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        <button id="btnRunCheck" onclick="executeTitleCheck()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold transition flex items-center">
+                            <span>Search Literature</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="checkLoading" class="hidden py-8 text-center text-slate-500">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-amber-600 mb-2"></i>
+                    <p class="text-xs">Searching global academic registries (IEEE, ACM, Springer, arXiv, Crossref, Scholar index)...</p>
+                </div>
+
+                <!-- Verdict Banner -->
+                <div id="verdictBox" class="hidden p-4 rounded-xl border">
+                    <div class="flex items-start space-x-3">
+                        <div id="verdictIcon" class="mt-0.5 text-lg"></div>
+                        <div>
+                            <h4 id="verdictTitle" class="font-bold text-sm"></h4>
+                            <p id="verdictMessage" class="text-xs mt-1 leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Matches List -->
+                <div id="matchesContainer" class="hidden space-y-3">
+                    <h5 class="text-xs font-bold uppercase tracking-wider text-slate-500">Matching Published Literature Found:</h5>
+                    <div id="matchesList" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <div class="mt-5 flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button onclick="closeModal('checkExistenceModal')" class="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add Publication (With Auto-Duplicate Detection & Auto-Rejection) -->
+    <div id="pubModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 id="modalTitle" class="font-bold text-slate-900 text-lg">Add Publication</h3>
+                <button onclick="closeModal('pubModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="pubForm" onsubmit="handleSavePublication(event)" class="mt-4 space-y-3">
+                <input type="hidden" id="pubId">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Paper Title <span class="text-rose-500">*</span></label>
+                    <input id="inputTitle" required type="text" placeholder="e.g. AI AS A BUG DETECTOR" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <p class="text-[11px] text-slate-400 mt-0.5">Title is automatically verified against global academic literature for duplicates upon saving.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Authors <span class="text-rose-500">*</span></label>
+                    <input id="inputAuthors" required type="text" placeholder="e.g. MANISH or Jacob Devlin" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Publication Year <span class="text-rose-500">*</span></label>
+                        <input id="inputYear" required type="number" placeholder="2026" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">DOI (Optional)</label>
+                        <input id="inputDoi" type="text" placeholder="10.1109/..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Journal / Conference</label>
+                    <input id="inputJournal" type="text" placeholder="e.g. IEEE, Springer, NeurIPS" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div class="mt-5 flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('pubModal')" class="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button id="btnSavePub" type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition shadow-sm">
+                        <span>Save &amp; Verify Duplicate</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Researcher Report Generation -->
+    <div id="reportModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-base">Academic Researcher Performance Report</h3>
+                </div>
+                <button onclick="closeModal('reportModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div id="printableReport" class="mt-4 space-y-4 overflow-y-auto pr-1 flex-1">
+                <!-- Summary Stats -->
+                <div class="grid grid-cols-4 gap-3 text-center">
+                    <div class="p-3 bg-slate-50 border rounded-lg">
+                        <p class="text-xs text-slate-500 uppercase font-semibold">Submissions</p>
+                        <p id="repTotal" class="text-xl font-bold text-slate-900 mt-1">0</p>
+                    </div>
+                    <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                        <p class="text-xs text-emerald-700 uppercase font-semibold">Verified</p>
+                        <p id="repVerified" class="text-xl font-bold text-emerald-700 mt-1">0</p>
+                    </div>
+                    <div class="p-3 bg-rose-50 border border-rose-200 rounded-lg">
+                        <p class="text-xs text-rose-700 uppercase font-semibold">Rejected Duplicates</p>
+                        <p id="repRejected" class="text-xl font-bold text-rose-700 mt-1">0</p>
+                    </div>
+                    <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                        <p class="text-xs text-indigo-700 uppercase font-semibold">Total Citations</p>
+                        <p id="repCitations" class="text-xl font-bold text-indigo-700 mt-1">0</p>
+                    </div>
+                </div>
+
+                <!-- Authors Breakdown -->
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Author Breakdown:</h4>
+                    <div id="repAuthorList" class="space-y-1.5 text-xs"></div>
+                </div>
+
+                <!-- Full Publications List -->
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Verified Publications Index:</h4>
+                    <div id="repPubList" class="space-y-2 text-xs"></div>
+                </div>
+            </div>
+
+            <div class="mt-5 flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button onclick="window.print()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-semibold transition flex items-center">
+                    <i class="fa-solid fa-print mr-2"></i> Print / Save PDF
+                </button>
+                <button onclick="closeModal('reportModal')" class="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-sm">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMsg">Message</span>
+    </div>
+
+    <!-- Client-Side Architecture & Crossref Live Database Engine -->
+    <script>
+        const STORAGE_KEY = 'pub_system_publications_data';
+
+        const DEFAULT_PUBLICATIONS = [
+            {
+                id: 1,
+                title: "Attention Is All You Need",
+                doi: "10.48550/arXiv.1706.03762",
+                authors: "Ashish Vaswani, Noam Shazeer, Niki Parmar",
+                publicationYear: 2017,
+                journal: "Advances in Neural Information Processing Systems (NeurIPS)",
+                citationsCount: 134200,
+                verificationStatus: "VERIFIED",
+                verificationNotes: "Official landmark transformer paper verified."
+            },
+            {
+                id: 2,
+                title: "Deep Residual Learning for Image Recognition",
+                doi: "10.1109/CVPR.2016.90",
+                authors: "Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun",
+                publicationYear: 2016,
+                journal: "IEEE Conference on Computer Vision and Pattern Recognition (CVPR)",
+                citationsCount: 179426,
+                verificationStatus: "VERIFIED",
+                verificationNotes: "Official paper verified in IEEE."
+            },
+            {
+                id: 3,
+                title: "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+                doi: "10.18653/v1/N19-1423",
+                authors: "Jacob Devlin, Ming-Wei Chang, Kenton Lee",
+                publicationYear: 2019,
+                journal: "NAACL-HLT",
+                citationsCount: 84500,
+                verificationStatus: "VERIFIED",
+                verificationNotes: "Official paper verified in NAACL."
+            }
+        ];
+
+        function getStoredPublications() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PUBLICATIONS));
+                return DEFAULT_PUBLICATIONS;
+            }
+            try {
+                return JSON.parse(raw);
+            } catch (e) {
+                return DEFAULT_PUBLICATIONS;
+            }
+        }
+
+        function saveStoredPublications(list) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTable();
+            document.getElementById('searchInput').addEventListener('input', renderTable);
+            document.getElementById('statusFilter').addEventListener('change', renderTable);
+        });
+
+        function updateMetrics(items) {
+            const total = items.length;
+            const verified = items.filter(p => p.verificationStatus === 'VERIFIED').length;
+            const rejected = items.filter(p => p.verificationStatus === 'REJECTED' || p.verificationStatus === 'DUPLICATE').length;
+            const pending = items.filter(p => p.verificationStatus === 'PENDING').length;
+            const citations = items.reduce((sum, p) => sum + (p.citationsCount || 0), 0);
+
+            document.getElementById('statTotal').innerText = total;
+            document.getElementById('statVerified').innerText = verified;
+            document.getElementById('statRejected').innerText = rejected;
+            document.getElementById('statPending').innerText = pending;
+            document.getElementById('statCitations').innerText = Number(citations).toLocaleString();
+        }
+
+        function renderTable() {
+            const allItems = getStoredPublications();
+            updateMetrics(allItems);
+
+            const search = document.getElementById('searchInput').value.trim().toLowerCase();
+            const filter = document.getElementById('statusFilter').value;
+
+            const filtered = allItems.filter(p => {
+                const matchSearch = !search || 
+                    (p.title && p.title.toLowerCase().includes(search)) ||
+                    (p.authors && p.authors.toLowerCase().includes(search)) ||
+                    (p.doi && p.doi.toLowerCase().includes(search)) ||
+                    (p.journal && p.journal.toLowerCase().includes(search));
+
+                const matchStatus = filter === 'ALL' || p.verificationStatus === filter;
+                return matchSearch && matchStatus;
+            });
+
+            const tbody = document.getElementById('publicationsBody');
+            const emptyState = document.getElementById('emptyState');
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            filtered.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/80 transition';
+
+                let badgeClass = 'bg-amber-100 text-amber-700 border-amber-200';
+                let icon = 'fa-clock';
+                if (p.verificationStatus === 'VERIFIED') {
+                    badgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+                    icon = 'fa-circle-check';
+                } else if (p.verificationStatus === 'REJECTED' || p.verificationStatus === 'DUPLICATE') {
+                    badgeClass = 'bg-rose-100 text-rose-700 border-rose-200';
+                    icon = 'fa-triangle-exclamation';
+                }
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-400 font-mono">#${p.id}</td>
+                    <td class="px-6 py-4 max-w-xs">
+                        <div class="font-semibold text-slate-900">${escapeHtml(p.title)}</div>
+                        <div class="text-xs text-slate-500 mt-0.5"><i class="fa-solid fa-book-journal-whills mr-1 text-slate-400"></i>${escapeHtml(p.journal || 'N/A')}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-xs font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded">
+                            ${escapeHtml(p.doi || 'N/A')}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-slate-800 text-xs font-medium">${escapeHtml(p.authors || 'Unknown')}</div>
+                        <span class="inline-block mt-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">${p.publicationYear || 'N/A'}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            <i class="fa-solid fa-quote-right mr-1 text-[10px]"></i> ${Number(p.citationsCount || 0).toLocaleString()}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${badgeClass}">
+                            <i class="fa-solid ${icon} mr-1.5 text-[11px]"></i> ${p.verificationStatus}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 max-w-xs text-xs text-slate-600 truncate" title="${escapeHtml(p.verificationNotes || '')}">
+                        ${escapeHtml(p.verificationNotes || 'None')}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                        <button onclick="autoVerifyRow(${p.id})" title="Auto-verify & check duplicate online" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                        </button>
+                        <button onclick="openEditModal(${p.id})" title="Edit" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button onclick="deletePublication(${p.id})" title="Delete" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Live Crossref / Global Scholar Search Engine
+        async function queryGlobalScholarRegistry(title) {
+            const cleanTitle = encodeURIComponent(title.trim());
+            const endpoint = `https://api.crossref.org/works?query=${cleanTitle}&rows=15`;
+            const res = await fetch(endpoint);
+            if (!res.ok) throw new Error('Failed to query global academic database');
+            const data = await res.json();
+            const items = data.message.items || [];
+
+            let highestSim = 0;
+            let topMatch = null;
+            const matches = [];
+
+            for (const item of items) {
+                const matchTitle = (item.title && item.title.length) ? item.title[0] : 'Unknown Title';
+                const matchDoi = item.DOI || 'N/A';
+                const authors = (item.author || []).map(a => `${a.given || ''} ${a.family || ''}`.trim()).filter(Boolean).join(', ') || 'Unknown Authors';
+                let year = 0;
+                const pub = item.published || item.created;
+                if (pub && pub['date-parts'] && pub['date-parts'][0]) {
+                    year = pub['date-parts'][0][0];
+                }
+                const journal = (item['container-title'] && item['container-title'].length) ? item['container-title'][0] : (item.publisher || 'Publisher');
+                const citations = item['is-referenced-by-count'] || 0;
+
+                const sim = calculateSimilarity(title.toLowerCase(), matchTitle.toLowerCase());
+                const matchObj = {
+                    title: matchTitle,
+                    doi: matchDoi,
+                    authors: authors,
+                    year: year,
+                    journal: journal,
+                    citations: citations,
+                    similarityPercentage: Math.round(sim * 100)
+                };
+                matches.push(matchObj);
+
+                if (sim > highestSim) {
+                    highestSim = sim;
+                    topMatch = matchObj;
+                }
+            }
+
+            const alreadyExists = highestSim >= 0.70;
+            let verdict = '';
+            if (highestSim >= 0.85) {
+                verdict = `🚨 EXACT DUPLICATE DETECTED (${Math.round(highestSim * 100)}% Match)! A publication titled "${topMatch.title}" was already published in ${topMatch.journal} (${topMatch.year}) with ${Number(topMatch.citations).toLocaleString()} citations!`;
+            } else if (highestSim >= 0.70) {
+                verdict = `🚨 HIGH SIMILARITY DETECTED (${Math.round(highestSim * 100)}% Match). Similar research is already published by ${topMatch.authors} (${topMatch.year}).`;
+            } else {
+                verdict = `✅ ORIGINAL RESEARCH: No duplicate found in global academic registries. Eligible to publish!`;
+            }
+
+            return {
+                alreadyExists: alreadyExists,
+                maxSimilarityPercentage: Math.round(highestSim * 100),
+                verdict: verdict,
+                topMatch: topMatch,
+                matches: matches
+            };
+        }
+
+        async function autoVerifyRow(id) {
+            const list = getStoredPublications();
+            const pub = list.find(p => p.id === id);
+            if (!pub) return;
+
+            showToast('Querying global academic literature...', 'info');
+            try {
+                const result = await queryGlobalScholarRegistry(pub.title);
+                if (result.alreadyExists) {
+                    pub.verificationStatus = 'REJECTED';
+                    pub.verificationNotes = result.verdict;
+                    if (result.topMatch) pub.citationsCount = result.topMatch.citations;
+                    showToast('🚨 Auto-Rejected: Duplicate paper detected!', 'error');
+                } else {
+                    pub.verificationStatus = 'VERIFIED';
+                    pub.verificationNotes = result.verdict;
+                    showToast('✅ Verified: Original work approved!', 'success');
+                }
+                saveStoredPublications(list);
+                renderTable();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        function openCheckTitleModal() {
+            document.getElementById('checkTitleInput').value = '';
+            document.getElementById('verdictBox').classList.add('hidden');
+            document.getElementById('matchesContainer').classList.add('hidden');
+            document.getElementById('checkExistenceModal').classList.remove('hidden');
+        }
+
+        async function executeTitleCheck() {
+            const title = document.getElementById('checkTitleInput').value.trim();
+            if (!title) return showToast('Please enter a title to check', 'error');
+
+            const loading = document.getElementById('checkLoading');
+            const verdictBox = document.getElementById('verdictBox');
+            const verdictTitle = document.getElementById('verdictTitle');
+            const verdictMessage = document.getElementById('verdictMessage');
+            const verdictIcon = document.getElementById('verdictIcon');
+            const matchesContainer = document.getElementById('matchesContainer');
+            const matchesList = document.getElementById('matchesList');
+
+            loading.classList.remove('hidden');
+            verdictBox.classList.add('hidden');
+            matchesContainer.classList.add('hidden');
+
+            try {
+                const data = await queryGlobalScholarRegistry(title);
+                loading.classList.add('hidden');
+                verdictBox.classList.remove('hidden');
+
+                if (data.alreadyExists) {
+                    verdictBox.className = 'p-4 rounded-xl border bg-rose-50 border-rose-200 text-rose-900';
+                    verdictIcon.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-600 text-xl"></i>`;
+                    verdictTitle.innerText = `🚨 AUTO-REJECT: PUBLICATION ALREADY EXISTS (${data.maxSimilarityPercentage}% MATCH)`;
+                    verdictMessage.innerText = data.verdict;
+                } else {
+                    verdictBox.className = 'p-4 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-900';
+                    verdictIcon.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 text-xl"></i>`;
+                    verdictTitle.innerText = `✅ NO DUPLICATE FOUND - ORIGINAL RESEARCH`;
+                    verdictMessage.innerText = data.verdict;
+                }
+
+                matchesList.innerHTML = '';
+                if (data.matches && data.matches.length > 0) {
+                    matchesContainer.classList.remove('hidden');
+                    data.matches.forEach(m => {
+                        const item = document.createElement('div');
+                        item.className = 'p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-start justify-between gap-3 text-xs';
+                        item.innerHTML = `
+                            <div>
+                                <div class="font-bold text-slate-900 text-sm">${escapeHtml(m.title)}</div>
+                                <div class="text-slate-600 mt-0.5"><span class="font-medium">Authors:</span> ${escapeHtml(m.authors)}</div>
+                                <div class="text-slate-500 mt-0.5">
+                                    <span class="font-medium">Published:</span> ${m.year || 'N/A'} in <span class="italic">${escapeHtml(m.journal)}</span>
+                                    • Citations: <span class="font-bold text-indigo-600">${Number(m.citations).toLocaleString()}</span>
+                                </div>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <span class="px-2 py-1 rounded text-xs font-bold ${m.similarityPercentage >= 70 ? 'bg-rose-100 text-rose-700' : 'bg-slate-200 text-slate-700'}">
+                                    ${m.similarityPercentage}% Match
+                                </span>
+                            </div>
+                        `;
+                        matchesList.appendChild(item);
+                    });
+                }
+            } catch (err) {
+                loading.classList.add('hidden');
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function handleSavePublication(e) {
+            e.preventDefault();
+            const id = document.getElementById('pubId').value;
+            const title = document.getElementById('inputTitle').value.trim();
+            const authors = document.getElementById('inputAuthors').value.trim();
+            const year = parseInt(document.getElementById('inputYear').value) || 2026;
+            const doi = document.getElementById('inputDoi').value.trim();
+            const journal = document.getElementById('inputJournal').value.trim();
+
+            const btn = document.getElementById('btnSavePub');
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Verifying against global database...`;
+            btn.disabled = true;
+
+            try {
+                const list = getStoredPublications();
+
+                // Live check against literature
+                const check = await queryGlobalScholarRegistry(title);
+
+                let status = 'VERIFIED';
+                let notes = check.verdict;
+                let citations = 0;
+
+                if (check.alreadyExists) {
+                    status = 'REJECTED';
+                    if (check.topMatch) citations = check.topMatch.citations;
+                    alert('⚠️ AUTO-REJECTED DUPLICATE!\n\nThis paper is already published in global literature:\n\n' + check.verdict);
+                } else {
+                    showToast('✅ Saved & verified as original research!', 'success');
+                }
+
+                if (id) {
+                    const existing = list.find(p => p.id === parseInt(id));
+                    if (existing) {
+                        existing.title = title;
+                        existing.authors = authors;
+                        existing.publicationYear = year;
+                        existing.doi = doi;
+                        existing.journal = journal;
+                        existing.verificationStatus = status;
+                        existing.verificationNotes = notes;
+                        if (citations) existing.citationsCount = citations;
+                    }
+                } else {
+                    const newId = list.length ? Math.max(...list.map(p => p.id)) + 1 : 1;
+                    list.unshift({
+                        id: newId,
+                        title: title,
+                        doi: doi,
+                        authors: authors,
+                        publicationYear: year,
+                        journal: journal,
+                        citationsCount: citations,
+                        verificationStatus: status,
+                        verificationNotes: notes
+                    });
+                }
+
+                saveStoredPublications(list);
+                closeModal('pubModal');
+                renderTable();
+
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                btn.innerHTML = `<span>Save &amp; Verify Duplicate</span>`;
+                btn.disabled = false;
+            }
+        }
+
+        function openResearcherReportModal() {
+            const list = getStoredPublications();
+            const total = list.length;
+            const verified = list.filter(p => p.verificationStatus === 'VERIFIED').length;
+            const rejected = list.filter(p => p.verificationStatus === 'REJECTED' || p.verificationStatus === 'DUPLICATE').length;
+            const citations = list.reduce((sum, p) => sum + (p.citationsCount || 0), 0);
+
+            document.getElementById('repTotal').innerText = total;
+            document.getElementById('repVerified').innerText = verified;
+            document.getElementById('repRejected').innerText = rejected;
+            document.getElementById('repCitations').innerText = Number(citations).toLocaleString();
+
+            const authorCounts = {};
+            list.forEach(p => {
+                authorCounts[p.authors] = (authorCounts[p.authors] || 0) + 1;
+            });
+
+            const authorList = document.getElementById('repAuthorList');
+            authorList.innerHTML = '';
+            for (const [author, count] of Object.entries(authorCounts)) {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between p-2 bg-slate-50 rounded border';
+                row.innerHTML = `<span class="font-medium text-slate-800">${escapeHtml(author)}</span><span class="font-bold text-indigo-600">${count} Papers</span>`;
+                authorList.appendChild(row);
+            }
+
+            const pubList = document.getElementById('repPubList');
+            pubList.innerHTML = '';
+            list.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'p-2.5 bg-slate-50 rounded border flex justify-between items-center';
+                item.innerHTML = `
+                    <div>
+                        <div class="font-semibold text-slate-900">${escapeHtml(p.title)}</div>
+                        <div class="text-slate-500">${escapeHtml(p.authors)} (${p.publicationYear}) • Citations: ${Number(p.citationsCount || 0).toLocaleString()}</div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[11px] font-bold ${p.verificationStatus === 'VERIFIED' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                        ${p.verificationStatus}
+                    </span>
+                `;
+                pubList.appendChild(item);
+            });
+
+            document.getElementById('reportModal').classList.remove('hidden');
+        }
+
+        function deletePublication(id) {
+            if (!confirm('Are you sure you want to delete this publication record?')) return;
+            let list = getStoredPublications();
+            list = list.filter(p => p.id !== id);
+            saveStoredPublications(list);
+            showToast('Deleted successfully', 'success');
+            renderTable();
+        }
+
+        function openAddModal() {
+            document.getElementById('pubForm').reset();
+            document.getElementById('pubId').value = '';
+            document.getElementById('modalTitle').innerText = 'Add Publication (Auto-Duplicate Check)';
+            document.getElementById('pubModal').classList.remove('hidden');
+        }
+
+        function openEditModal(id) {
+            const list = getStoredPublications();
+            const pub = list.find(p => p.id === id);
+            if (!pub) return;
+            document.getElementById('pubId').value = pub.id;
+            document.getElementById('inputDoi').value = pub.doi || '';
+            document.getElementById('inputTitle').value = pub.title || '';
+            document.getElementById('inputAuthors').value = pub.authors || '';
+            document.getElementById('inputYear').value = pub.publicationYear || '';
+            document.getElementById('inputJournal').value = pub.journal || '';
+            document.getElementById('modalTitle').innerText = `Edit Publication #${pub.id}`;
+            document.getElementById('pubModal').classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = msg;
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-400';
+            } else if (type === 'info') {
+                toastIcon.className = 'fa-solid fa-circle-info text-blue-400';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+
+        function calculateSimilarity(s1, s2) {
+            if (s1 === s2) return 1.0;
+            const longer = Math.max(s1.length, s2.length);
+            if (longer === 0) return 1.0;
+            return (longer - computeLevenshtein(s1, s2)) / longer;
+        }
+
+        function computeLevenshtein(a, b) {
+            const costs = [];
+            for (let j = 0; j <= b.length; j++) costs[j] = j;
+            for (let i = 1; i <= a.length; i++) {
+                costs[0] = i;
+                let nw = i - 1;
+                for (let j = 1; j <= b.length; j++) {
+                    const cj = Math.min(1 + Math.min(costs[j], costs[j - 1]),
+                        a.charAt(i - 1) === b.charAt(j - 1) ? nw : nw + 1);
+                    nw = costs[j];
+                    costs[j] = cj;
+                }
+            }
+            return costs[b.length];
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+            }[m]));
+        }
+    </script>
+</body>
+</html>

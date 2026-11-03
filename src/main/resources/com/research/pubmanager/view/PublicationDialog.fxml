@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.research.pubmanager.controller.PublicationDialogController"
+      spacing="14.0" prefWidth="600.0" prefHeight="580.0" stylesheets="@styles.css">
+
+    <padding>
+        <Insets top="20.0" right="24.0" bottom="20.0" left="24.0"/>
+    </padding>
+
+    <Label fx:id="dialogTitleLabel" text="Add New Publication" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #0f172a;"/>
+
+    <GridPane hgap="12.0" vgap="12.0">
+        <columnConstraints>
+            <ColumnConstraints minWidth="120.0" prefWidth="130.0"/>
+            <ColumnConstraints hgrow="ALWAYS"/>
+        </columnConstraints>
+
+        <!-- DOI & Auto Fetch -->
+        <Label text="DOI:" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-font-weight: bold;"/>
+        <HBox spacing="8.0" GridPane.rowIndex="0" GridPane.columnIndex="1">
+            <TextField fx:id="doiField" promptText="e.g. 10.1109/CVPR.2016.90" HBox.hgrow="ALWAYS"/>
+            <Button text="⚡ Auto-Fetch" onAction="#handleAutoFetch" styleClass="btn-info"/>
+        </HBox>
+
+        <!-- Title -->
+        <Label text="Paper Title:" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-font-weight: bold;"/>
+        <TextField fx:id="titleField" promptText="Enter full paper title" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+        <!-- Authors -->
+        <Label text="Authors:" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-font-weight: bold;"/>
+        <TextField fx:id="authorsField" promptText="e.g. Jane Doe, John Smith" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+        <!-- Year -->
+        <Label text="Publication Year:" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-font-weight: bold;"/>
+        <TextField fx:id="yearField" promptText="e.g. 2023" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+        <!-- Journal -->
+        <Label text="Journal / Conf:" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-font-weight: bold;"/>
+        <TextField fx:id="journalField" promptText="e.g. IEEE Transactions on Software Engineering" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+        <!-- Status -->
+        <Label text="Status:" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-font-weight: bold;"/>
+        <ComboBox fx:id="statusComboBox" prefWidth="250.0" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+        <!-- Verification Notes -->
+        <Label text="Notes:" GridPane.rowIndex="6" GridPane.columnIndex="0" style="-fx-font-weight: bold;"/>
+        <TextArea fx:id="notesArea" prefRowCount="3" promptText="Optional notes or verification details..." wrapText="true" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+    </GridPane>
+
+    <Region VBox.vgrow="ALWAYS"/>
+
+    <!-- Action Buttons -->
+    <HBox spacing="10.0" alignment="CENTER_RIGHT">
+        <Button text="Cancel" onAction="#handleCancel" styleClass="btn-secondary"/>
+        <Button text="Save Publication" onAction="#handleSave" styleClass="btn-primary"/>
+    </HBox>
+</VBox>
