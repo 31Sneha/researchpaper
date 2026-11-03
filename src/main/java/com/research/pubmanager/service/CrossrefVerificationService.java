@@ -123,8 +123,8 @@ public class CrossrefVerificationService {
                     // Citations
                     int citations = item.optInt("is-referenced-by-count", 0);
 
-                    // Similarity Score
-                    double sim = calculateSimilarity(titleToCheck.toLowerCase(), matchTitle.toLowerCase());
+                    // Multi-Metric Similarity Score (Levenshtein + Token Jaccard + Substring Containment)
+                    double sim = calculateMultiMetricSimilarity(titleToCheck, matchTitle);
                     ExistingPaperMatch match = new ExistingPaperMatch(matchTitle, matchDoi, authors, year, journal, Math.round(sim * 100), citations);
                     matches.add(match);
 
@@ -135,13 +135,13 @@ public class CrossrefVerificationService {
                 }
             }
 
-            // Evaluation: Does paper already exist?
-            boolean alreadyExists = highestSimilarity >= 0.70;
+            // Evaluation: Does paper already exist? (Threshold lowered to 65% multi-metric)
+            boolean alreadyExists = highestSimilarity >= 0.65;
             boolean authorMismatch = false;
 
             if (alreadyExists && topMatch != null && submittedAuthors != null && !submittedAuthors.isBlank()) {
-                double authorSim = calculateSimilarity(submittedAuthors.toLowerCase(), topMatch.getAuthors().toLowerCase());
-                if (authorSim < 0.40) {
+                double authorSim = calculateMultiMetricSimilarity(submittedAuthors, topMatch.getAuthors());
+                if (authorSim < 0.35) {
                     authorMismatch = true;
                 }
             }
@@ -149,13 +149,13 @@ public class CrossrefVerificationService {
             String verdict;
             if (alreadyExists && topMatch != null) {
                 if (authorMismatch) {
-                    verdict = String.format("AUTO-REJECTED (DUPLICATE & AUTHOR MISMATCH): Similar paper \"%s\" already published in %d by %s (Citations: %,d). Submitted author \"%s\" does not match!",
-                            topMatch.getTitle(), topMatch.getYear(), topMatch.getAuthors(), topMatch.getCitations(), submittedAuthors);
+                    verdict = String.format("AUTO-REJECTED (DUPLICATE & AUTHOR MISMATCH - %d%% Match): Similar paper \"%s\" already published in %d by %s (Citations: %,d). Submitted author \"%s\" does not match!",
+                            Math.round(highestSimilarity * 100), topMatch.getTitle(), topMatch.getYear(), topMatch.getAuthors(), topMatch.getCitations(), submittedAuthors);
                 } else {
-                    verdict = String.format("AUTO-REJECTED (DUPLICATE): A publication titled \"%s\" is already published in %s (%d) with %,d citations!",
-                            topMatch.getTitle(), topMatch.getJournal(), topMatch.getYear(), topMatch.getCitations());
+                    verdict = String.format("AUTO-REJECTED (DUPLICATE - %d%% Match): A publication titled \"%s\" is already published in %s (%d) with %,d citations!",
+                            Math.round(highestSimilarity * 100), topMatch.getTitle(), topMatch.getJournal(), topMatch.getYear(), topMatch.getCitations());
                 }
-            } else if (highestSimilarity >= 0.45 && topMatch != null) {
+            } else if (highestSimilarity >= 0.40 && topMatch != null) {
                 verdict = String.format("FLAGGED (PARTIAL OVERLAP - %d%% Match): Related work found: \"%s\" (%d). Reviewer inspection required.",
                         Math.round(highestSimilarity * 100), topMatch.getTitle(), topMatch.getYear());
             } else {
@@ -304,11 +304,67 @@ public class CrossrefVerificationService {
         return new Publication(title, cleanDoi, authors, year, journal, "VERIFIED", "Fetched & Verified from Official Registry", citations);
     }
 
-    private double calculateSimilarity(String s1, String s2) {
-        if (s1.equals(s2)) return 1.0;
-        int longer = Math.max(s1.length(), s2.length());
-        if (longer == 0) return 1.0;
-        return (longer - computeLevenshtein(s1, s2)) / (double) longer;
+    public String normalizeText(String s) {
+        if (s == null) return "";
+        return s.toLowerCase()
+                .replaceAll("[^a-z0-9\\s]", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    public double calculateMultiMetricSimilarity(String s1, String s2) {
+        if (s1 == null || s2 == null) return 0.0;
+        String norm1 = normalizeText(s1);
+        String norm2 = normalizeText(s2);
+
+        if (norm1.equals(norm2)) return 1.0;
+        if (norm1.isEmpty() || norm2.isEmpty()) return 0.0;
+
+        // 1. Substring Containment Check
+        double containment = 0.0;
+        if (norm1.contains(norm2) || norm2.contains(norm1)) {
+            int shorterLen = Math.min(norm1.length(), norm2.length());
+            int longerLen = Math.max(norm1.length(), norm2.length());
+            if (shorterLen >= 10 || norm1.split(" ").length >= 3) {
+                containment = Math.max(0.85, (double) shorterLen / longerLen);
+            }
+        }
+
+        // 2. Token Jaccard Similarity (Ignoring common stop words)
+        double jaccard = computeJaccardSimilarity(norm1, norm2);
+
+        // 3. Normalized Levenshtein Edit Distance
+        int longer = Math.max(norm1.length(), norm2.length());
+        int dist = computeLevenshtein(norm1, norm2);
+        double levenshtein = (double) (longer - dist) / longer;
+
+        return Math.max(levenshtein, Math.max(containment, jaccard));
+    }
+
+    private double computeJaccardSimilarity(String s1, String s2) {
+        java.util.Set<String> stopWords = java.util.Set.of(
+            "a", "an", "the", "and", "or", "of", "in", "for", "on", "with", "to", "at", "by", "from", "as", "is", "are", "using", "based", "via"
+        );
+
+        java.util.Set<String> set1 = new java.util.HashSet<>();
+        for (String w : s1.split("\\s+")) {
+            if (!stopWords.contains(w) && w.length() > 1) set1.add(w);
+        }
+
+        java.util.Set<String> set2 = new java.util.HashSet<>();
+        for (String w : s2.split("\\s+")) {
+            if (!stopWords.contains(w) && w.length() > 1) set2.add(w);
+        }
+
+        if (set1.isEmpty() || set2.isEmpty()) return 0.0;
+
+        java.util.Set<String> intersection = new java.util.HashSet<>(set1);
+        intersection.retainAll(set2);
+
+        java.util.Set<String> union = new java.util.HashSet<>(set1);
+        union.addAll(set2);
+
+        return (double) intersection.size() / union.size();
     }
 
     private int computeLevenshtein(String a, String b) {

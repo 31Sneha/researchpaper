@@ -102,12 +102,52 @@ public class PublicationApiController {
         String doi = publication.getDoi() != null ? verificationService.normalizeDoi(publication.getDoi()) : "";
         publication.setDoi(doi);
 
-        // Check local database for exact DOI duplicate
-        if (!doi.isBlank() && repository.findByDoiIgnoreCase(doi).isPresent() && !force) {
-            return ResponseEntity.badRequest().body(Map.of("error", "AUTO-REJECTED: A publication with this exact DOI already exists in your database!"));
+        // 1. Check local database for exact DOI duplicate
+        if (!doi.isBlank() && !force) {
+            java.util.Optional<Publication> doiMatch = repository.findByDoiIgnoreCase(doi);
+            if (doiMatch.isPresent()) {
+                Publication dup = doiMatch.get();
+                publication.setVerificationStatus("REJECTED");
+                publication.setVerificationNotes(String.format("AUTO-REJECTED (DUPLICATE DOI): Exact DOI %s already exists in the system (Duplicate of Paper #%d: \"%s\").", doi, dup.getId(), dup.getTitle()));
+                publication.setVerifiedAt(LocalDateTime.now());
+                Publication saved = repository.save(publication);
+                return ResponseEntity.status(409).body(Map.of(
+                    "error", "AUTO-REJECTED: A publication with this exact DOI already exists in the system (#" + dup.getId() + ")!",
+                    "publication", saved,
+                    "duplicate", true
+                ));
+            }
         }
 
-        // AUTO-VERIFICATION against global literature
+        // 2. Check local database for title match / high similarity
+        if (!force) {
+            List<Publication> allLocal = repository.findAll();
+            Publication localMatch = null;
+            double highestLocalSim = 0.0;
+            for (Publication p : allLocal) {
+                double sim = verificationService.calculateMultiMetricSimilarity(title, p.getTitle());
+                if (sim > highestLocalSim) {
+                    highestLocalSim = sim;
+                    localMatch = p;
+                }
+            }
+
+            if (highestLocalSim >= 0.75 && localMatch != null) {
+                publication.setVerificationStatus("REJECTED");
+                publication.setVerificationNotes(String.format("AUTO-REJECTED (SYSTEM DUPLICATE): %d%% match found with already registered Paper #%d: \"%s\" by %s (%d).",
+                        Math.round(highestLocalSim * 100), localMatch.getId(), localMatch.getTitle(), localMatch.getAuthors(), localMatch.getPublicationYear()));
+                publication.setVerifiedAt(LocalDateTime.now());
+                publication.setCitationsCount(localMatch.getCitationsCount());
+                Publication saved = repository.save(publication);
+                return ResponseEntity.status(409).body(Map.of(
+                    "error", "AUTO-REJECTED (DUPLICATE DETECTED): This paper already exists in your system (Duplicate of #" + localMatch.getId() + " - " + Math.round(highestLocalSim * 100) + "% match)!",
+                    "publication", saved,
+                    "duplicate", true
+                ));
+            }
+        }
+
+        // 3. AUTO-VERIFICATION against global literature (Crossref)
         CrossrefVerificationService.PriorArtCheckResult check = verificationService.checkExistingPublications(title, authors, year);
 
         if (check.isAlreadyExists()) {
@@ -117,6 +157,14 @@ public class PublicationApiController {
             if (check.getTopMatch() != null) {
                 publication.setCitationsCount(check.getTopMatch().getCitations());
             }
+            publication.setVerifiedAt(LocalDateTime.now());
+            Publication saved = repository.save(publication);
+            return ResponseEntity.status(409).body(Map.of(
+                "error", check.getVerdict(),
+                "publication", saved,
+                "checkResult", check,
+                "duplicate", true
+            ));
         } else {
             publication.setVerificationStatus("VERIFIED");
             publication.setVerificationNotes(check.getVerdict());
@@ -161,6 +209,29 @@ public class PublicationApiController {
     public ResponseEntity<?> checkTitleExistence(@RequestParam String title,
                                                  @RequestParam(required = false, defaultValue = "") String authors,
                                                  @RequestParam(required = false, defaultValue = "0") int year) {
+        // 1. Check local system database first
+        List<Publication> all = repository.findAll();
+        Publication localMatch = null;
+        double maxLocalSim = 0.0;
+        for (Publication p : all) {
+            double sim = verificationService.calculateMultiMetricSimilarity(title, p.getTitle());
+            if (sim > maxLocalSim) {
+                maxLocalSim = sim;
+                localMatch = p;
+            }
+        }
+
+        if (maxLocalSim >= 0.70 && localMatch != null) {
+            String verdict = String.format("🚨 AUTO-REJECT: PUBLICATION ALREADY EXISTS IN YOUR DATABASE (%d%% Match)! Duplicate of Paper #%d: \"%s\" by %s (%d) with %,d citations.",
+                    Math.round(maxLocalSim * 100), localMatch.getId(), localMatch.getTitle(), localMatch.getAuthors(), localMatch.getPublicationYear(), localMatch.getCitationsCount());
+            CrossrefVerificationService.ExistingPaperMatch top = new CrossrefVerificationService.ExistingPaperMatch(
+                    localMatch.getTitle(), localMatch.getDoi(), localMatch.getAuthors(), localMatch.getPublicationYear(),
+                    localMatch.getJournal(), Math.round(maxLocalSim * 100), localMatch.getCitationsCount());
+            return ResponseEntity.ok(new CrossrefVerificationService.PriorArtCheckResult(
+                    title, true, Math.round(maxLocalSim * 100), verdict, top, List.of(top), false));
+        }
+
+        // 2. Query global academic database
         CrossrefVerificationService.PriorArtCheckResult result = verificationService.checkExistingPublications(title, authors, year);
         return ResponseEntity.ok(result);
     }
